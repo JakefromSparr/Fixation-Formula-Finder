@@ -56,7 +56,67 @@ const chiralityMap = {
   // Add more as needed if you discover them, or a 'CUSTOM' fallback
 };
 
-// --- Core Utility Functions ---
+// Each `transform` takes (q, r) and returns new {q, r}.
+const hexTransforms = [
+    (q, r) => ({ q, r }),                  // Identity (0 degrees rotation)
+    (q, r) => ({ q: r, r: -q - r }),       // +60 degrees rotation
+    (q, r) => ({ q: -q - r, r: q }),       // +120 degrees rotation
+    (q, r) => ({ q: -q, r: -r }),          // +180 degrees rotation
+    (q, r) => ({ q: -r, r: q + r }),       // +240 degrees rotation
+    (q, r) => ({ q: q + r, r: -q }),       // +300 degrees rotation
+    (q, r) => ({ q: r, r: q }),            // Axial reflection (across main diagonal)
+    (q, r) => ({ q: q, r: -q - r }),       // Axial reflection (across secondary diagonal)
+    (q, r) => ({ q: -q - r, r: -r }),      // Axial reflection (across third diagonal)
+    (q, r) => ({ q: -r, r: -q }),          // Diagonal reflection (across 'q' axis)
+    (q, r) => ({ q: q + r, r: r }),        // Diagonal reflection (across 'r' axis)
+    (q, r) => ({ q: -q, r: q + r })        // Diagonal reflection (across 's' axis, where s=-q-r)
+];
+
+// Generates all 12 rotational and reflectional symmetries of the given configuration.
+function generateAllSymmetries(config) {
+    return hexTransforms.map(transform => {
+        const transformedConfig = config.map(tile => {
+            const { q, r } = transform(tile.q, tile.r);
+            // Re-map connections to new IDs based on their transformed (q,r) coordinates.
+            // This is complex. For now, we'll keep connections as-is and rely on spatial string.
+            // A perfect graph isomorphism canonicalization would re-map IDs.
+            // For this level of canonical form, we primarily care about the spatial layout and pips.
+            return {
+                id: tile.id, // Keep original ID, but it's not used in final string conversion
+                q,
+                r,
+                pips: tile.pips,
+                connections: tile.connections // Connections are topological, not spatial
+            };
+        });
+        return normalizeCoordinates(transformedConfig);
+    });
+}
+
+// Normalizes a configuration by shifting its coordinates so the
+// tile with the lowest q (then lowest r) is at (0,0).
+function normalizeCoordinates(config) {
+    if (config.length === 0) return [];
+    
+    let minQ = Infinity;
+    let minR = Infinity;
+
+    for (const tile of config) {
+        if (tile.q < minQ) minQ = tile.q;
+        if (tile.r < minR) minR = tile.r;
+    }
+
+    // After finding minQ and minR, adjust for a specific "lowest corner" canonicalization
+    // For axial, it's typically just minQ and minR.
+    // If you have a specific desired "anchor" for your canonicalization (e.g., topmost-leftmost),
+    // this logic might need adjustment. For now, simple min q, min r shift.
+
+    return config.map(tile => ({
+        ...tile, // Keep other properties like pips, connections, currentBonds
+        q: tile.q - minQ,
+        r: tile.r - minR,
+    }));
+}
 
 // Calculates the axial distance between two hexes.
 function getDistance(hexA, hexB) {
@@ -397,9 +457,29 @@ const seenConfigs = new Set();
 const summary = {};
 
 // Generates a canonical string representation of a configuration for uniqueness checks.
-function getCanonicalForm(config) {
-    if (config.length === 0) return "";
-
+function getCanonicalForm(config) { // Renamed from getFullCanonicalForm
+    const allSymmetries = generateAllSymmetries(config);
+    const canonicalFormsAsStrings = allSymmetries.map(variant => {
+        // Sort tiles within the variant for a consistent string representation
+        return variant
+            .map(tile => {
+                // Include chirality of individual tiles as part of the canonical form for richer uniqueness
+                // Note: getChiralityForTile needs to receive the *original* config to properly resolve neighbors
+                // The chirality of a tile depends on its connections to OTHER tiles in the *original* graph.
+                // It doesn't change with rotation of the whole shape.
+                // So, we use the chirality calculated from the ORIGINAL config for the tile's properties.
+                const originalTile = config.find(t => t.id === tile.id);
+                const chirality = originalTile ? getChiralityForTile(originalTile, config) : "N/A";
+                return `${tile.q},${tile.r},${tile.pips},${chirality}`;
+            })
+            .sort() // Sort the strings of individual tile canonical representations
+            .join("|");
+    });
+    
+    // Sort all generated canonical form strings lexicographically and pick the smallest
+    canonicalFormsAsStrings.sort();
+    return canonicalFormsAsStrings[0]; // The lexicographically smallest is the true canonical form
+}
     // Normalize coordinates: shift all tiles so the tile with the smallest q (then smallest r) is at (0,0).
     let minQ = Infinity;
     let minR = Infinity;
