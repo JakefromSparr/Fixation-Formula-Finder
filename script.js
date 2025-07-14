@@ -196,6 +196,26 @@ function tryAllPossibleBonds(config) {
     return workingConfig;
 }
 
+// Calculates all empty neighbor coordinates around the current configuration.
+// This is used to determine where a new tile could potentially be placed.
+function calculateViablePlacementSpots(config, selectedTilePips) {
+    const occupied = new Set(config.map(t => `${t.q},${t.r}`));
+    const spots = [];
+
+    for (const tile of config) {
+        for (const dir of neighborDirs) {
+            const q = tile.q + dir.q;
+            const r = tile.r + dir.r;
+            const key = `${q},${r}`;
+            if (!occupied.has(key) && !spots.some(s => s.q === q && s.r === r)) {
+                spots.push({ q, r });
+            }
+        }
+    }
+
+    return spots;
+}
+
 
 function showCurrentGeneratedFormula() {
     if (!generatedFormulas.length) {
