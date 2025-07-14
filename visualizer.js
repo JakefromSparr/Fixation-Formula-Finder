@@ -67,3 +67,27 @@ function drawFormula(tiles) {
 }
 
 window.drawFormula = drawFormula;
+
+function drawHighlightedSpaces(spaces) {
+  ctx.save();
+  ctx.strokeStyle = "blue";
+  ctx.lineWidth = 3;
+  spaces.forEach(({ q, r }) => {
+    const { x, y } = hexToPixel(q, r);
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = Math.PI / 180 * (60 * i);
+      const px = x + hexRadius * Math.cos(angle);
+      const py = y + hexRadius * Math.sin(angle);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+window.drawHighlightedSpaces = drawHighlightedSpaces;
+
+
