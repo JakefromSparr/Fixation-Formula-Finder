@@ -9,31 +9,52 @@
     <h1>Fixation Formula Finder</h1>
 
     <div id="controls">
-        <button id="runGeneration">Run Generation</button>
+        <label for="maxTiles">Max Tiles for Generation:</label>
+        <select id="maxTiles">
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6" selected>6</option> </select>
+        <button id="runGeneration">Generate Formulas</button>
+        <button id="resetBuilder">Start New Interactive Formula</button>
+        <button id="undoLastMove" style="display: none;">Undo Last Move</button>
+        
+        <div id="nextTileSelection" style="display: none;">
+            <label for="selectPip">Next Tile Pip:</label>
+            <select id="selectPip">
+                <option value="1">1 Pip</option>
+                <option value="2">2 Pips</option>
+                <option value="3">3 Pips</option>
+            </select>
+            <button id="placeNextTile">Place Tile</button>
+        </div>
         <button id="prevVis">Prev</button>
         <button id="nextVis">Next</button>
     </div>
 
     <div class="content-wrapper">
         <div class="left-panel">
-            <h2>Discovered Formulas</h2>
-            <div id="discoveredFormulasList">
-                <p>Click "Run Generation" to find formulas.</p>
+            <h2>Current Formula State</h2>
+            <pre id="output"></pre>
+            <div id="formulaActions">
+                <p id="classificationMessage" style="font-weight: bold;"></p>
+                <button id="classifyUnique" style="display: none;">Classify as UNIQUE</button>
+                <button id="classifyDerivative" style="display: none;">Classify as DERIVATIVE</button>
+                <button id="classifyEcho" style="display: none;">Classify as ECHO</button>
             </div>
-            <button id="copyDiscoveredFormulas">Copy All Discovered Formulas to JSON</button>
-            <textarea id="discoveredJsonOutput" rows="10" cols="50" readonly style="display: none;"></textarea>
         </div>
 
         <div class="center-panel">
-            <h2>Current Formula</h2>
-            <pre id="output"></pre>
+            <h2>Formula Builder</h2>
             <canvas id="visualization" width="600" height="600"></canvas>
         </div>
 
         <div class="right-panel">
-            <h2>Known Formulas (from JSON)</h2>
-            <ul id="knownFormulasList">
-                <p>Loading known formulas...</p>
+            <h2>Cataloged Formulas</h2>
+            <div id="catalogSummary"></div>
+            <ul id="catalogedFormulasList">
+                <p>Loading catalog...</p>
             </ul>
         </div>
     </div>
