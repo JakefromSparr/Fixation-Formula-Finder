@@ -2,18 +2,103 @@ body {
     font-family: Arial, sans-serif;
     padding: 20px;
     text-align: center;
+    background: #f4f4f4;
+}
+
+h1 {
+    color: #333;
+}
+
+#controls {
+    margin-bottom: 20px;
+}
+
+button {
+    padding: 10px 15px;
+    margin: 5px;
+    border: none;
+    background-color: #007bff;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+.content-wrapper {
+    display: flex;
+    justify-content: space-around;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.left-panel, .center-panel, .right-panel {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    flex: 1; /* Allows panels to grow and shrink */
+    min-width: 280px; /* Minimum width for panels */
+    max-width: 400px; /* Max width to keep them from getting too wide */
+    text-align: left;
+    overflow-y: auto; /* Enable scrolling for lists */
+    max-height: 700px; /* Limit height for scrollable content */
+}
+
+.center-panel {
+    flex: 1.5; /* Make the center panel a bit wider */
+    text-align: center;
 }
 
 canvas {
     border: 1px solid #333;
     margin-top: 20px;
+    display: block;
+    width: 100%; /* Make canvas responsive within its panel */
+    height: auto;
+    max-height: 400px; /* Limit canvas height */
 }
 
 #output {
-    text-align: left;
-    margin-top: 20px;
-    display: inline-block;
     background: #f7f7f7;
     padding: 10px;
     border-radius: 5px;
+    white-space: pre-wrap; /* Preserve whitespace and wrap long lines */
+    word-wrap: break-word; /* Break long words */
+    max-height: 250px; /* Scrollable if content too long */
+    overflow-y: auto;
+    font-size: 0.85em;
+}
+
+#discoveredFormulasList, #knownFormulasList {
+    list-style: none;
+    padding: 0;
+    margin-top: 10px;
+}
+
+#discoveredFormulasList li, #knownFormulasList li {
+    background: #e9ecef;
+    margin-bottom: 5px;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    font-size: 0.9em;
+}
+
+#discoveredFormulasList li:hover, #knownFormulasList li:hover {
+    background-color: #cfe2ff;
+}
+
+#discoveredJsonOutput {
+    width: 100%;
+    margin-top: 10px;
+    border: 1px solid #ccc;
+    padding: 5px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.8em;
 }

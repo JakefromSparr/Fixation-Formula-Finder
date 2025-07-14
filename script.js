@@ -1,28 +1,39 @@
 // script.js
 let knownFormulas = [];
-let generatedFormulas = []; // Stores unique, complete formulas found
+let generatedFormulas = [];
 let currentIndex = 0;
 const MAX_FORMULA_TILES = 6; // Limit formula size (e.g., for 6-tile rings)
 const MAX_PIPS_PER_TYPE = 3; // Max 3 of each pip type per player (total 6 for both players combined in a formula)
 
+// Global set to track all unique canonical forms found across all starting points/branches
+window.globalSeenConfigs = new Set();
+
+// DOM Elements
+const runGenerationBtn = document.getElementById('runGeneration');
+const prevVisBtn = document.getElementById('prevVis');
+const nextVisBtn = document.getElementById('nextVis');
+const outputDisplay = document.getElementById('output');
+const discoveredFormulasList = document.getElementById('discoveredFormulasList');
+const knownFormulasList = document.getElementById('knownFormulasList');
+const copyDiscoveredFormulasBtn = document.getElementById('copyDiscoveredFormulas');
+const discoveredJsonOutput = document.getElementById('discoveredJsonOutput');
+
+// --- Initialization and Data Loading ---
+
 async function loadKnownFormulas() {
   try {
     const res = await fetch('data/knownFormulas.json');
-    if (!res.ok) throw new Error('network');
     knownFormulas = await res.json();
-  } catch (err) {
-    console.warn('Falling back to embedded known formulas', err);
-    if (Array.isArray(window.defaultKnownFormulas)) {
-      knownFormulas = window.defaultKnownFormulas;
-    } else {
-      knownFormulas = [];
-    }
+    displayKnownFormulas(); // Display them once loaded
+  } catch (error) {
+    console.error("Error loading known formulas:", error);
+    knownFormulasList.innerHTML = `<p>Error loading known formulas. Check data/knownFormulas.json</p>`;
   }
 }
 
-window.globalSeenConfigs = new Set(); // Global set for unique canonical forms
+// --- Formula Processing and Generation ---
 
-// Processes a complete, valid formula found by the generator
+// Processes a complete, valid formula found by the generator.
 function processFoundFormula(config) {
   const configCopy = JSON.parse(JSON.stringify(config)); // Deep copy for immutability
   const result = validateFormula(configCopy); // Validate and classify using validator.js
@@ -37,29 +48,29 @@ function processFoundFormula(config) {
         f.valenceCode === result.pipDistribution &&
         f.shapeType === result.shapeType
       );
-      if (match) result.name = match.name;
+      if (match) result.name = match.name; // Assign known name if found
 
       generatedFormulas.push({ config: configCopy, result: result });
+      addDiscoveredFormulaToList({ config: configCopy, result: result }); // Add to discovered list
     }
   }
 }
 
 // Main DFS Generator function
 function generateFormulasDFS() {
-  generatedFormulas = [];
-  window.globalSeenConfigs.clear();
+  generatedFormulas = []; // Clear previous results
+  window.globalSeenConfigs.clear(); // Clear global uniqueness tracker
   for (const key in summary) delete summary[key]; // Clear validator's summary
 
+  discoveredFormulasList.innerHTML = '<p>Generating...</p>'; // Indicate generation in progress
+
   // Initial call loop: Start with a single tile at (0,0) for each possible pip type.
-  // These are the "starting conditions" for your iterative method.
   for (let startPip = 1; startPip <= 3; startPip++) {
     const initialConfig = [{
       id: 0,
       q: 0, r: 0,
       pips: startPip,
       connections: [],
-      // In this model, `currentBonds` represents actual bonds made.
-      // `pips` is the maximum capacity.
       currentBonds: 0
     }];
 
@@ -67,66 +78,63 @@ function generateFormulasDFS() {
     initialAvailablePips[startPip]--;
 
     if (initialAvailablePips[startPip] >= 0) {
-      // After placing the first tile, immediately try to form bonds if possible (e.g., if it's placed next to another tile, which isn't the case here).
-      // Then recurse.
-      recurseGenerate(initialConfig, initialAvailablePips, null); // Pass null for lastPlacedTileId initially
+      recurseGenerate(initialConfig, initialAvailablePips, null);
     }
   }
+
+  // After generation, update UI
+  if (generatedFormulas.length === 0) {
+      discoveredFormulasList.innerHTML = '<p>No formulas found with current settings.</p>';
+      outputDisplay.textContent = "No formulas generated.";
+      drawFormula([]);
+  } else {
+      currentIndex = 0;
+      showCurrentGeneratedFormula();
+      // Update discovered list message if it was "Generating..."
+      if (generatedFormulas.length > 0 && discoveredFormulasList.querySelector('p')?.textContent === 'Generating...') {
+          discoveredFormulasList.innerHTML = ''; // Clear placeholder
+      }
+  }
+
+  // Final summary to console
+  console.log("\n--- Aggregated Shape Summary ---");
+  window.printSummary(); // Call the function from validator.js
 }
 
-// Recursive function to build formulas following game rules.
-// currentConfig: Current state of tiles on the board.
-// availablePips: Counts of each pip type still available to place.
-// lastPlacedTileId: ID of the tile most recently placed in this branch.
+// Recursive function to build formulas following game rules (as previously defined)
 function recurseGenerate(currentConfig, availablePips, lastPlacedTileId) {
-    // 1. Create a deep copy for the current recursive branch to ensure proper backtracking.
     const configCopy = JSON.parse(JSON.stringify(currentConfig));
     const availablePipsCopy = { ...availablePips };
 
-    // 2. Attempt to form ALL possible bonds among currently placed tiles.
-    // This function will also update `currentBonds` for each tile.
     const bondedConfig = attemptAllPossibleBonds(configCopy);
 
-    // Pruning: If bonding leads to an invalid state (e.g., tile needs more bonds than available, or negative bonds), prune.
     if (bondedConfig === null) {
         return;
     }
-
-    // Update configCopy to the state after bonding
     configCopy.splice(0, configCopy.length, ...bondedConfig);
 
-
-    // 3. Check for Completion: If all tiles in `configCopy` have satisfied their `pips`.
     const isFormulaComplete = configCopy.every(t => t.currentBonds === t.pips);
     const isValidFinalForm = isFormulaComplete && isValidPipSum(configCopy) && isGeometricallyValid(configCopy);
 
     if (isValidFinalForm) {
-        processFoundFormula(configCopy); // Store this completed formula
-        // Important: If you want to find only the *minimal* completed formulas, `return` here.
-        // If you want to find larger formulas that *contain* smaller ones, remove `return`.
-        // For formula finding, finding minimal is typically preferred.
+        processFoundFormula(configCopy);
         return;
     }
 
-    // Pruning: Max tiles reached, or no more pips to place/satisfy existing tiles.
     if (configCopy.length >= MAX_FORMULA_TILES) {
         return;
     }
+
     const totalAvailablePipsCount = Object.values(availablePipsCopy).reduce((sum, count) => sum + count, 0);
     const totalUnsatisfiedPipsInConfig = configCopy.reduce((sum, tile) => sum + (tile.pips - tile.currentBonds), 0);
 
     if (totalAvailablePipsCount === 0 && totalUnsatisfiedPipsInConfig > 0) {
-        return; // No more tiles, and existing tiles aren't satisfied.
+        return;
     }
-    // Further pruning: If total remaining pips (config + available) is odd, it can't be completed.
     if ((totalUnsatisfiedPipsInConfig + totalAvailablePipsCount) % 2 !== 0) {
-        return; // Cannot form a valid complete graph (Handshake Lemma).
+        return;
     }
 
-
-    // 4. Explore placing the NEXT tile (iterative method's "possible spaces")
-    // Use `calculateAvailableSpaces` to find where the *next* tile could be placed.
-    // This is where the game's strict placement rules come in.
     const potentialNextPipsToPlace = [];
     for (let p = 1; p <= 3; p++) {
         if (availablePipsCopy[p] > 0) {
@@ -134,194 +142,146 @@ function recurseGenerate(currentConfig, availablePips, lastPlacedTileId) {
         }
     }
 
-    // If no more tiles can be placed, and the formula isn't complete, this branch is a dead end.
     if (potentialNextPipsToPlace.length === 0 && !isValidFinalForm) {
         return;
     }
 
-    // The logic from calculateAvailableSpaces in your game checks specific rules.
-    // We need to simulate selecting a tile and finding its available spots.
-    // Here, we iterate through all tiles we *could* place next.
+    const potentialPlacementSpots = calculateViablePlacementSpots(configCopy); // Empty spots around existing tiles
+
     for (const nextPipValue of potentialNextPipsToPlace) {
-        // Create a dummy "selected tile" for calculateAvailableSpaces logic
-        const dummySelectedTile = { pips: nextPipValue, remainingPips: nextPipValue }; // `remainingPips` here is its total capacity
+        const dummySelectedTile = { pips: nextPipValue, remainingPips: nextPipValue };
 
-        const availablePlacementSpots = calculateViablePlacementSpots(configCopy, dummySelectedTile);
-
-        for (const spot of availablePlacementSpots) {
-            // Check if adding `nextPipValue` at `spot` is valid for `calculateAvailableSpaces` rules.
-            // This requires re-evaluating the logic of calculateViablePlacementSpots from your game's script.js.
-            // We need to pass it the "potential new tile" context.
-
-            // The simplified `calculateViablePlacementSpots` in `validator.js` just finds empty neighbors.
-            // We need to apply the game's stricter rules here:
+        for (const spot of potentialPlacementSpots) {
             const isSpotViableInGameLogic = checkIfSpotMeetsGamePlacementRules(
-                configCopy, // current board state
-                spot.q, spot.r, // proposed placement spot
-                dummySelectedTile // the tile we are considering placing
+                configCopy,
+                spot.q, spot.r,
+                dummySelectedTile
             );
 
             if (!isSpotViableInGameLogic) {
-                continue; // This spot is not viable according to game rules
+                continue;
             }
 
-            // If the spot is viable, create the new tile
             const newTile = {
-                id: configCopy.length, // Assign next available ID
+                id: configCopy.length,
                 q: spot.q, r: spot.r,
                 pips: nextPipValue,
                 connections: [],
                 currentBonds: 0
             };
 
-            const nextConfig = JSON.parse(JSON.stringify(configCopy)); // Deep copy config
-            const nextAvailablePips = { ...availablePipsCopy }; // Deep copy available pips
+            const nextConfig = JSON.parse(JSON.stringify(configCopy));
+            const nextAvailablePips = { ...availablePipsCopy };
 
             nextConfig.push(newTile);
             nextAvailablePips[nextPipValue]--;
 
-            // Recursively explore this new state
             recurseGenerate(nextConfig, nextAvailablePips, newTile.id);
         }
     }
 }
 
 
-// This helper implements the game's specific placement rules (calculateAvailableSpaces logic)
-// for a single proposed spot. Adapted from your game's script.js
-function checkIfSpotMeetsGamePlacementRules(currentConfig, proposedQ, proposedR, selectedTileDetails) {
-    const currentBoardMap = new Map(); // Temp map to simulate boardspace
-    currentConfig.forEach(t => currentBoardMap.set(`${t.q},${t.r}`, t));
+// --- UI Display Functions ---
 
-    let hasNeighborWithOpenPips = 0;
-    let zeroPipNeighbor = false;
-
-    const spotNeighbors = neighborDirs.map(d => ({ q: proposedQ + d.q, r: proposedR + d.r }));
-
-    for (let sn of spotNeighbors) {
-        const ntile = currentBoardMap.get(`${sn.q},${sn.r}`);
-        if (ntile) { // If there's a tile at this neighbor spot
-            if (ntile.currentBonds < ntile.pips) { // If neighbor has remaining capacity
-                hasNeighborWithOpenPips++;
-            } else if (ntile.currentBonds === ntile.pips) { // If neighbor is fully bonded
-                zeroPipNeighbor = true;
-            }
-        }
-    }
-
-    // The original calculateAvailableSpaces had these:
-    // selectedTile.remainingPips > 0 (always true for a new tile with pips > 0)
-    // && hasNeighborWithPips >= 1
-    // && hasNeighborWithPips <= selectedTile.remainingPips (this implies new tile's pips can absorb all open bonds)
-    // && !zeroPipNeighbor (prevents placing next to a fully bonded tile if new tile still has open pips)
-
-    // Simplified for generator (focused on being able to *start* a bond):
-    // A spot is viable if it's adjacent to at least one tile with open pips.
-    // The deeper bond-satisfaction is handled by `attemptAllPossibleBonds`.
-
-    return (selectedTileDetails.pips > 0 && hasNeighborWithOpenPips >= 1 && !zeroPipNeighbor);
-    // You might also need: hasNeighborWithOpenPips <= selectedTileDetails.pips
-    // (A 1-pip tile cannot be placed next to 2 open-pip neighbors if it would use 2 bonds).
-    // This means the `selectedTileDetails.pips` needs to be used in the condition.
-    // `hasNeighborWithOpenPips <= selectedTileDetails.pips`
-    // This rule is crucial for constraining placement according to the game.
-
-    // Let's use the full rule from your original game code:
-    // if selectedTile.remainingPips (meaning `selectedTileDetails.pips` for a new tile) > 0
-    //    && hasNeighborWithPips >= 1
-    //    && hasNeighborWithPips <= selectedTile.remainingPips
-    //    && ! zeroPipNeighbor
-}
-
-
-// --- Existing helper from validator.js, moved here for clarity since it's used by generator ---
-// This helper attempts to form *all possible* direct bonds
-// between adjacent tiles in the current configuration until no more can be made.
-// It returns a new config state or null if an invalid bond is attempted (e.g., negative pips).
-function attemptAllPossibleBonds(config) {
-    const workingConfig = JSON.parse(JSON.stringify(config));
-    const tileMap = new Map(workingConfig.map(t => [t.id, t]));
-
-    let bondsMadeInIteration;
-    do {
-        bondsMadeInIteration = false;
-        // Iterate over all pairs of tiles
-        for (let i = 0; i < workingConfig.length; i++) {
-            const tile1 = workingConfig[i];
-            // Skip if tile1 already has max bonds
-            if (tile1.currentBonds >= tile1.pips) continue;
-
-            for (let j = i + 1; j < workingConfig.length; j++) { // Only check pairs once
-                const tile2 = workingConfig[j];
-                // Skip if tile2 already has max bonds
-                if (tile2.currentBonds >= tile2.pips) continue;
-
-                // Check if they are adjacent and not already connected
-                if (getDistance(tile1, tile2) === 1 &&
-                    !tile1.connections.some(conn => conn.targetId === tile2.id)) {
-
-                    // If both have remaining bond capacity, form a bond
-                    if (tile1.currentBonds < tile1.pips && tile2.currentBonds < tile2.pips) {
-                        tile1.connections.push({ targetId: tile2.id });
-                        tile1.currentBonds++;
-
-                        tile2.connections.push({ targetId: tile1.id });
-                        tile2.currentBonds++;
-
-                        bondsMadeInIteration = true;
-
-                        // Pruning: If any tile exceeds its pip capacity, this path is invalid
-                        if (tile1.currentBonds > tile1.pips || tile2.currentBonds > tile2.pips) {
-                            return null;
-                        }
-                    }
-                }
-            }
-        }
-    } while (bondsMadeInIteration); // Keep trying until no more bonds can be made in an iteration
-
-    return workingConfig;
-}
-
-
-// --- UI and Navigation (from your script.js) ---
-
+// Displays the currently selected generated formula
 function showCurrentGeneratedFormula() {
     if (!generatedFormulas.length) {
-        document.getElementById('output').textContent = "No formulas generated yet. Try adjusting MAX_FORMULA_TILES or available pip counts.";
+        outputDisplay.textContent = "No formulas generated yet. Adjust settings or run generation.";
         drawFormula([]);
         return;
     }
     const item = generatedFormulas[currentIndex];
-    document.getElementById('output').textContent = JSON.stringify(item.result, null, 2);
+    outputDisplay.textContent = JSON.stringify(item.result, null, 2);
     drawFormula(item.config);
-
-    // No highlighting of viable spaces for *completed* formulas.
-    // This would be done *within* recurseGenerate if you wanted to visualize intermediate steps.
 }
 
-document.getElementById('runTest').onclick = async () => {
+// Populates the "Known Formulas" list from knownFormulas.json
+function displayKnownFormulas() {
+    knownFormulasList.innerHTML = ''; // Clear previous list
+    if (knownFormulas.length === 0) {
+        knownFormulasList.innerHTML = '<p>No known formulas loaded.</p>';
+        return;
+    }
+    knownFormulas.forEach(formulaData => {
+        const li = document.createElement('li');
+        li.textContent = `${formulaData.name || formulaData.shapeType} (${formulaData.valenceCode})`;
+        li.title = formulaData.description || ''; // Add description as tooltip
+        li.dataset.valenceCode = formulaData.valenceCode;
+        li.dataset.shapeType = formulaData.shapeType;
+        li.addEventListener('click', () => {
+            const matchingFormula = generatedFormulas.find(gen => 
+                gen.result.pipDistribution === formulaData.valenceCode &&
+                gen.result.shapeType === formulaData.shapeType &&
+                gen.result.name === formulaData.name
+            );
+
+            if (matchingFormula) {
+                currentIndex = generatedFormulas.indexOf(matchingFormula);
+                showCurrentGeneratedFormula();
+            } else {
+                alert(`Configuration for "${formulaData.name}" not found in generated formulas. It might not have been generated yet or its exact shape is different.`);
+            }
+        });
+        knownFormulasList.appendChild(li);
+    });
+}
+
+// Adds a newly discovered formula to the "Discovered Formulas" list
+function addDiscoveredFormulaToList(item) {
+    if (discoveredFormulasList.querySelector('p')?.textContent === 'Generating...') {
+        discoveredFormulasList.innerHTML = '';
+    }
+    const li = document.createElement('li');
+    li.textContent = `${item.result.name || item.result.shapeType} (${item.result.pipDistribution})`;
+    li.title = item.result.name ? `Known: ${item.result.name}` : 'Newly Discovered';
+    if (!item.result.name) {
+        li.style.fontWeight = 'bold';
+        li.style.backgroundColor = '#d4edda';
+    } else {
+        li.style.backgroundColor = '#f8f9fa';
+    }
+
+    li.addEventListener('click', () => {
+        currentIndex = generatedFormulas.indexOf(item);
+        showCurrentGeneratedFormula();
+    });
+    discoveredFormulasList.appendChild(li);
+}
+
+// --- Event Listeners ---
+
+runGenerationBtn.addEventListener('click', async () => {
     await loadKnownFormulas();
-    
-    generateFormulasDFS(); // Start the generation process
+    generateFormulasDFS();
+});
 
-    currentIndex = 0;
-    showCurrentGeneratedFormula();
-
-    console.log("\n--- Aggregated Shape Summary ---");
-    window.printSummary(); // Calls the function from validator.js
-};
-
-document.getElementById('prevVis').onclick = () => {
+prevVisBtn.addEventListener('click', () => {
     if (!generatedFormulas.length) return;
     currentIndex = (currentIndex - 1 + generatedFormulas.length) % generatedFormulas.length;
     showCurrentGeneratedFormula();
-};
+});
 
-document.getElementById('nextVis').onclick = () => {
+nextVisBtn.addEventListener('click', () => {
     if (!generatedFormulas.length) return;
     currentIndex = (currentIndex + 1) % generatedFormulas.length;
     showCurrentGeneratedFormula();
-};
+});
 
-loadKnownFormulas(); // Initial load of known formulas when the page loads
+copyDiscoveredFormulasBtn.addEventListener('click', () => {
+    const formulasToCopy = generatedFormulas.map(item => ({
+        name: item.result.name || null,
+        valenceCode: item.result.pipDistribution,
+        shapeType: item.result.shapeType,
+        description: `Discovered formula (${item.result.shapeType}) with pip distribution ${item.result.pipDistribution}.`
+    }));
+    discoveredJsonOutput.value = JSON.stringify(formulasToCopy, null, 2);
+    discoveredJsonOutput.style.display = 'block';
+    discoveredJsonOutput.select();
+    document.execCommand('copy');
+    alert('Discovered formulas copied to clipboard! Paste into data/knownFormulas.json');
+});
+
+
+// Initial load of known formulas when the page loads
+loadKnownFormulas();

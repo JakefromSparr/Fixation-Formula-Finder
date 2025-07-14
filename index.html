@@ -9,17 +9,37 @@
     <h1>Fixation Formula Finder</h1>
 
     <div id="controls">
-        <button id="runTest">Run Generation</button>
+        <button id="runGeneration">Run Generation</button>
         <button id="prevVis">Prev</button>
         <button id="nextVis">Next</button>
     </div>
 
-    <pre id="output"></pre>
-    <canvas id="visualization" width="600" height="600"></canvas>
+    <div class="content-wrapper">
+        <div class="left-panel">
+            <h2>Discovered Formulas</h2>
+            <div id="discoveredFormulasList">
+                <p>Click "Run Generation" to find formulas.</p>
+            </div>
+            <button id="copyDiscoveredFormulas">Copy All Discovered Formulas to JSON</button>
+            <textarea id="discoveredJsonOutput" rows="10" cols="50" readonly style="display: none;"></textarea>
+        </div>
+
+        <div class="center-panel">
+            <h2>Current Formula</h2>
+            <pre id="output"></pre>
+            <canvas id="visualization" width="600" height="600"></canvas>
+        </div>
+
+        <div class="right-panel">
+            <h2>Known Formulas (from JSON)</h2>
+            <ul id="knownFormulasList">
+                <p>Loading known formulas...</p>
+            </ul>
+        </div>
+    </div>
 
     <script src="validator.js" defer></script>
     <script src="visualizer.js" defer></script>
-    <script src="data/knownFormulas.js" defer></script>
     <script src="script.js" defer></script>
 </body>
 </html>
