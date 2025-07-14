@@ -457,68 +457,52 @@ const seenConfigs = new Set();
 const summary = {};
 
 // Generates a canonical string representation of a configuration for uniqueness checks.
-function getCanonicalForm(config) { // Renamed from getFullCanonicalForm
-    const allSymmetries = generateAllSymmetries(config);
-    const canonicalFormsAsStrings = allSymmetries.map(variant => {
-        // Sort tiles within the variant for a consistent string representation
-        return variant
+// Generates the true canonical form for a configuration by considering all symmetries.
+function getCanonicalForm(config) {
+    if (config.length === 0) return "";
+
+    const allSymmetries = hexTransforms.map(transform => {
+        // Apply transformation to each tile's coordinates
+        const transformedConfig = config.map(tile => {
+            const { q, r } = transform(tile.q, tile.r);
+            return {
+                id: tile.id, // Keep original ID
+                q, r,
+                pips: tile.pips,
+                connections: tile.connections // Connections are topological, not spatial
+            };
+        });
+
+        // Normalize coordinates for this transformed variant: shift so lowest q (then lowest r) is at (0,0)
+        let minQ = Infinity;
+        let minR = Infinity;
+        for (const tile of transformedConfig) {
+            if (tile.q < minQ) minQ = tile.q;
+            if (tile.r < minR) minR = tile.r;
+        }
+
+        const normalizedVariant = transformedConfig.map(tile => ({
+            ...tile,
+            q: tile.q - minQ,
+            r: tile.r - minR,
+        }));
+
+        // Generate string for this normalized variant
+        return normalizedVariant
             .map(tile => {
-                // Include chirality of individual tiles as part of the canonical form for richer uniqueness
-                // Note: getChiralityForTile needs to receive the *original* config to properly resolve neighbors
-                // The chirality of a tile depends on its connections to OTHER tiles in the *original* graph.
-                // It doesn't change with rotation of the whole shape.
-                // So, we use the chirality calculated from the ORIGINAL config for the tile's properties.
+                // Include chirality of individual tiles (calculated from ORIGINAL config) for richer uniqueness
                 const originalTile = config.find(t => t.id === tile.id);
+                // Ensure originalTile is found before getting chirality to prevent errors
                 const chirality = originalTile ? getChiralityForTile(originalTile, config) : "N/A";
                 return `${tile.q},${tile.r},${tile.pips},${chirality}`;
             })
             .sort() // Sort the strings of individual tile canonical representations
             .join("|");
     });
-    
+
     // Sort all generated canonical form strings lexicographically and pick the smallest
-    canonicalFormsAsStrings.sort();
-    return canonicalFormsAsStrings[0]; // The lexicographically smallest is the true canonical form
-}
-    // Normalize coordinates: shift all tiles so the tile with the smallest q (then smallest r) is at (0,0).
-    let minQ = Infinity;
-    let minR = Infinity;
-    for (const tile of config) {
-        if (tile.q < minQ) minQ = tile.q;
-        if (tile.r < minR) minR = tile.r;
-    }
-
-    const normalizedTiles = config.map(tile => ({
-        id: tile.id, // Keep ID for internal sorting/consistency if needed, but won't be in final string
-        q: tile.q - minQ,
-        r: tile.r - minR,
-        pips: tile.pips,
-        // Connections also need to be normalized if used in canonical form.
-        // For now, simpler: just rely on normalized q,r,pips and sorted order.
-        // For perfect canonicalization for all symmetries, this is where graph isomorphism algorithms get complex.
-        // For current purposes, sorting by normalized q, r, pips as primary heuristic:
-    }));
-
-    // Sort tiles by their normalized coordinates and pips for a consistent order.
-    // This provides a "spatial fingerprint"
-    const sortedTilesString = normalizedTiles
-        .sort((a, b) => {
-            if (a.q !== b.q) return a.q - b.q;
-            if (a.r !== b.r) return a.r - b.r;
-            return a.pips - b.pips;
-        })
-        .map(tile => {
-            // Include chirality of individual tiles as part of the canonical form for richer uniqueness
-            const chirality = getChiralityForTile(config.find(t => t.id === tile.id), config);
-            return `${tile.q},${tile.r},${tile.pips},${chirality}`;
-        })
-        .join("|");
-
-    // The current canonical form does not account for overall shape rotations/reflections beyond individual tile chirality.
-    // For full "meta-canonicalization" of the entire configuration, you would need to generate all 6 rotations and 1 reflection
-    // of the entire coordinate set, normalize each, convert to string, and pick the lexicographically smallest.
-    // This is a more advanced topic for a later stage if needed.
-    return sortedTilesString;
+    allSymmetries.sort();
+    return allSymmetries[0]; // The lexicographically smallest is the true canonical form
 }
 
 // Determines if a configuration is a derivative based on its canonical form.

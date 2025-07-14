@@ -1,17 +1,20 @@
 const canvas = document.getElementById('visualization');
 const ctx = canvas.getContext('2d');
-const hexRadius = 30;
+const hexRadius = 30; // Consistent with your current Finder repo's visualizer.js
 
-const hexWidth = Math.sqrt(3) * hexRadius;
-const hexHeight = 2 * hexRadius;
+// Use these defined variables for hex dimensions
+const hexWidth = hexRadius * Math.sqrt(3); // flat-top hex width
+const hexHeight = hexRadius * 2;           // flat-top hex height (point-to-point)
 
 const centerX = canvas.width / 2;
 const centerY = canvas.height / 2;
 
+// Hex to Pixel conversion for FLAT-TOP orientation
+// q-axis is horizontal, r-axis is diagonal (up-right)
 function hexToPixel(q, r) {
-    const x = hexRadius * Math.sqrt(3) * (q + r/2);
-    const y = hexRadius * 1.5 * r;
-    return { x: centerX + x, y: centerY + y };
+  const x = hexWidth * (q + r/2); // Use hexWidth here
+  const y = hexHeight * (3/4) * r; // Use hexHeight here
+  return { x: centerX + x, y: centerY + y };
 }
 function drawHex(x, y, label, color = '#ccc') {
     ctx.beginPath();
