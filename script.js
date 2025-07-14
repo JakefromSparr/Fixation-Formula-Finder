@@ -1,8 +1,24 @@
 document.getElementById("runTest").onclick = () => {
+  // Minimal sample configuration that matches the structure expected by the
+  // validator and visualiser. Each tile has an id, axial coordinates (q,r), the
+  // number of pips (valency) and explicit two way connection definitions.
+  // This simple chain of two tiles is enough to exercise the validation logic
+  // and render something on the canvas.
   const testConfig = [
-    {player: "Black", tile: "B2.1", q:0, r:0, edges:[2,3]},
-    {player: "White", tile: "W2.1", q:0, r:1, edges:[0,1]},
-    {player: "Black", tile: "B2.2", q:1, r:1, edges:[4,5]}
+    {
+      id: 1,
+      q: 0,
+      r: 0,
+      pips: 1,
+      connections: [{ targetId: 2 }]
+    },
+    {
+      id: 2,
+      q: 0,
+      r: 1,
+      pips: 1,
+      connections: [{ targetId: 1 }]
+    }
   ];
 
   const result = validateFormula(testConfig);
