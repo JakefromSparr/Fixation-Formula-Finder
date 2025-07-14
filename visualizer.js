@@ -2,19 +2,22 @@ const canvas = document.getElementById('visualization');
 const ctx = canvas.getContext('2d');
 const hexRadius = 30;
 
+const hexWidth = Math.sqrt(3) * hexRadius;
+const hexHeight = 2 * hexRadius;
+
 const centerX = canvas.width / 2;
 const centerY = canvas.height / 2;
 
 function hexToPixel(q, r) {
-  const x = hexRadius * 1.5 * q;
-  const y = hexRadius * Math.sqrt(3) * (r + q / 2);
-  return { x: centerX + x, y: centerY + y };
+  const x = hexWidth * (q + r / 2) + centerX;
+  const y = hexHeight * (3/4) * r + centerY;
+  return { x, y };
 }
 
 function drawHex(x, y, label, color = '#ccc') {
   ctx.beginPath();
   for (let i = 0; i < 6; i++) {
-    const angle = Math.PI / 3 * i; // flat-top orientation
+    const angle = Math.PI / 180 * (60 * i); // Flat-top hex angles
     const px = x + hexRadius * Math.cos(angle);
     const py = y + hexRadius * Math.sin(angle);
     if (i === 0) ctx.moveTo(px, py);
@@ -44,18 +47,20 @@ function drawBond(x1, y1, x2, y2) {
 
 function drawFormula(tiles) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const pixelPositions = new Map();
+  const positions = new Map();
+
   tiles.forEach(tile => {
     const { x, y } = hexToPixel(tile.q, tile.r);
-    pixelPositions.set(tile.id, { x, y });
+    positions.set(tile.id, { x, y });
     drawHex(x, y, tile.pips.toString());
   });
+
   tiles.forEach(tile => {
-    const { x: t1x, y: t1y } = pixelPositions.get(tile.id);
+    const { x: x1, y: y1 } = positions.get(tile.id);
     tile.connections.forEach(conn => {
       if (tile.id < conn.targetId) {
-        const { x: t2x, y: t2y } = pixelPositions.get(conn.targetId);
-        drawBond(t1x, t1y, t2x, t2y);
+        const { x: x2, y: y2 } = positions.get(conn.targetId);
+        drawBond(x1, y1, x2, y2);
       }
     });
   });
