@@ -28,10 +28,7 @@ window.globalSeenConfigs = window.globalSeenConfigs || new Set();
 
 // --- Constants from game logic (re-declared here for self-containment of script.js) ---
 const MAX_PIPS_PER_TYPE = 3; // Max 3 of each pip tile per player (total 6 for both players combined in a formula)
-const neighborDirs = [
-    {q: 1, r: 0}, {q: 0, r: 1}, {q: -1, r: 1},
-    {q: -1, r: 0}, {q: 0, r: -1}, {q: 1, r: -1}
-];
+// `neighborDirs` is defined in validator.js and globally available, so avoid re-declaring it here.
 // Ensure getDistance and other validator helpers are globally accessible (from validator.js)
 
 
