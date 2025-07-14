@@ -22,6 +22,8 @@ const classificationMessage = document.getElementById('classificationMessage');
 const classifyUniqueBtn = document.getElementById('classifyUnique');
 const classifyDerivativeBtn = document.getElementById('classifyDerivative');
 const classifyEchoBtn = document.getElementById('classifyEcho');
+// Ensure global set exists to track seen canonical forms across sessions
+window.globalSeenConfigs = window.globalSeenConfigs || new Set();
 
 
 // --- Constants from game logic (re-declared here for self-containment of script.js) ---
