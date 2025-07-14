@@ -497,9 +497,18 @@ function validateFormula(config) {
   return result;
 }
 
+// Logs the summary of unique and derivative shapes found during validation.
+function printSummary() {
+  console.log('Shape Summary:');
+  for (const [shape, counts] of Object.entries(summary)) {
+    console.log(`${shape} - unique: ${counts.unique}, derivative: ${counts.derivative}`);
+  }
+}
+
 // Expose functions to the global scope for use in script.js (if not using modules)
 // For cleaner separation, in a real app, you'd use ES6 modules.
 // For CodePen/simple file structure, this makes them accessible.
 window.validateFormula = validateFormula;
 window.getCanonicalForm = getCanonicalForm; // For debugging/display if needed
 window.summary = summary; // For accessing the summary outside
+window.printSummary = printSummary;
