@@ -241,6 +241,68 @@ function recurseGenerate(currentConfig, availablePips, maxDepth) {
     }
 }
 
+// This helper implements the game's placement rules for a single proposed spot
+// using the logic from the original Fixation prototype. It checks that a tile
+// placed at (proposedQ, proposedR) would be adjacent to at least one neighbour
+// with free bond capacity and not next to fully bonded tiles only.
+function checkIfSpotMeetsGamePlacementRules(currentConfig, proposedQ, proposedR, selectedTileDetails) {
+    const boardMap = new Map();
+    currentConfig.forEach(t => boardMap.set(`${t.q},${t.r}`, t));
+
+    let openPipNeighbors = 0;
+    let zeroPipNeighbor = false;
+    const neighbors = neighborDirs.map(d => ({ q: proposedQ + d.q, r: proposedR + d.r }));
+
+    for (const n of neighbors) {
+        const tile = boardMap.get(`${n.q},${n.r}`);
+        if (!tile) continue;
+        if (tile.currentBonds < tile.pips) {
+            openPipNeighbors++;
+        } else if (tile.currentBonds === tile.pips) {
+            zeroPipNeighbor = true;
+        }
+    }
+
+    return (
+        selectedTileDetails.pips > 0 &&
+        openPipNeighbors >= 1 &&
+        !zeroPipNeighbor
+    );
+}
+
+// Attempts to satisfy all possible bonds between adjacent tiles. Returns a new
+// configuration with updated `currentBonds` and `connections` or `null` if a
+// bond would exceed a tile's pip capacity.
+function attemptAllPossibleBonds(config) {
+    const working = JSON.parse(JSON.stringify(config));
+    let madeBond;
+    do {
+        madeBond = false;
+        for (let i = 0; i < working.length; i++) {
+            const t1 = working[i];
+            if (t1.currentBonds >= t1.pips) continue;
+            for (let j = i + 1; j < working.length; j++) {
+                const t2 = working[j];
+                if (t2.currentBonds >= t2.pips) continue;
+                if (getDistance(t1, t2) === 1 && !t1.connections.some(c => c.targetId === t2.id)) {
+                    if (t1.currentBonds < t1.pips && t2.currentBonds < t2.pips) {
+                        t1.connections.push({ targetId: t2.id });
+                        t1.currentBonds++;
+                        t2.connections.push({ targetId: t1.id });
+                        t2.currentBonds++;
+                        madeBond = true;
+                        if (t1.currentBonds > t1.pips || t2.currentBonds > t2.pips) {
+                            return null;
+                        }
+                    }
+                }
+            }
+        }
+    } while (madeBond);
+
+    return working;
+}
+
 
 // --- Interactive Formula Builder Logic ---
 
