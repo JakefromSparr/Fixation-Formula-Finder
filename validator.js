@@ -14,6 +14,34 @@ const neighborDirs = [
 const hexDeltaToEdgeIndex = {
   "1,0": 0, "0,1": 1, "-1,1": 2, "-1,0": 3, "0,-1": 4, "1,-1": 5
 };
+function calculateViablePlacementSpots(config) {
+    const occupied = new Set(config.map(t => `${t.q},${t.r}`));
+    const spots = [];
+
+    // If no tiles are placed yet, the only viable spot is the origin (0,0)
+    if (config.length === 0) {
+        return [{ q: 0, r: 0 }];
+    }
+
+    // Iterate through existing tiles to find their empty neighbors
+    for (const tile of config) {
+        for (const dir of neighborDirs) {
+            const q = tile.q + dir.q;
+            const r = tile.r + dir.r;
+            const key = `${q},${r}`;
+            
+            // Add spot if it's empty and not already in our list of spots
+            if (!occupied.has(key) && !spots.some(s => s.q === q && s.r === r)) {
+                spots.push({ q, r });
+            }
+        }
+    }
+    return spots;
+}
+
+// Ensure window.calculateViablePlacementSpots is exposed globally
+window.calculateViablePlacementSpots = calculateViablePlacementSpots;
+
 
 // Map canonical bit string to Chirality Labels (A, AB, AC, etc.)
 // These mappings are based on your provided Chirality Map Logic
