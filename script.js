@@ -6,8 +6,18 @@ const MAX_FORMULA_TILES = 6; // Limit formula size (e.g., for 6-tile rings)
 const MAX_PIPS_PER_TYPE = 3; // Max 3 of each pip type per player (total 6 for both players combined in a formula)
 
 async function loadKnownFormulas() {
-  const res = await fetch('data/knownFormulas.json');
-  knownFormulas = await res.json();
+  try {
+    const res = await fetch('data/knownFormulas.json');
+    if (!res.ok) throw new Error('network');
+    knownFormulas = await res.json();
+  } catch (err) {
+    console.warn('Falling back to embedded known formulas', err);
+    if (Array.isArray(window.defaultKnownFormulas)) {
+      knownFormulas = window.defaultKnownFormulas;
+    } else {
+      knownFormulas = [];
+    }
+  }
 }
 
 window.globalSeenConfigs = new Set(); // Global set for unique canonical forms
