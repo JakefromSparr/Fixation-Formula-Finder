@@ -9,32 +9,32 @@ const centerX = canvas.width / 2;
 const centerY = canvas.height / 2;
 
 function hexToPixel(q, r) {
-  const x = hexWidth * (q + r / 2) + centerX;
-  const y = hexHeight * (3/4) * r + centerY;
-  return { x, y };
+    const x = hexRadius * Math.sqrt(3) * (q + r/2);
+    const y = hexRadius * 1.5 * r;
+    return { x: centerX + x, y: centerY + y };
 }
-
 function drawHex(x, y, label, color = '#ccc') {
-  ctx.beginPath();
-  for (let i = 0; i < 6; i++) {
-    const angle = Math.PI / 180 * (60 * i); // Flat-top hex angles
-    const px = x + hexRadius * Math.cos(angle);
-    const py = y + hexRadius * Math.sin(angle);
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
-  ctx.strokeStyle = '#333';
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.stroke();
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+        const angle = Math.PI / 3 * i + Math.PI / 6; // flat-topped hex orientation
+        const px = x + hexRadius * Math.cos(angle);
+        const py = y + hexRadius * Math.sin(angle);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = '#333';
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.stroke();
 
-  ctx.fillStyle = '#000';
-  ctx.font = '14px Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(label, x, y);
+    ctx.fillStyle = '#000';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y);
 }
+
 
 function drawBond(x1, y1, x2, y2) {
   ctx.beginPath();
