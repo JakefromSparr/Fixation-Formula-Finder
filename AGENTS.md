@@ -21,11 +21,6 @@ Codex, when running in this repo:
    - Visual board layout using `drawFormula()`.
 ---
 ## How to Validate Changes
-> Run these before submitting a PR or asking Codex to verify changes.
-```bash
-# Install JavaScript dev dependencies (if any added later)
-pnpm install
-# Run linter (if configured)
-pnpm lint
-# Run tests (if added)
-pnpm test
+Use:
+ https://jakefromsparr.github.io/Fixation-Formula-Finder/
+To manually test all functionality and local storage
