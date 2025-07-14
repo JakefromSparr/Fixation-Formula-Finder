@@ -22,8 +22,14 @@ const classificationMessage = document.getElementById('classificationMessage');
 const classifyUniqueBtn = document.getElementById('classifyUnique');
 const classifyDerivativeBtn = document.getElementById('classifyDerivative');
 const classifyEchoBtn = document.getElementById('classifyEcho');
+const exportUniqueBtn = document.getElementById('exportUnique');
 // Ensure global set exists to track seen canonical forms across sessions
 window.globalSeenConfigs = window.globalSeenConfigs || new Set();
+
+// Track selected catalog formula for reclassification and whether we're in
+// generated-formula classification mode
+let selectedCatalogFormulaIndex = null;
+let isClassifyingGenerated = false;
 
 
 // --- Constants from game logic (re-declared here for self-containment of script.js) ---
@@ -311,6 +317,8 @@ function startNewInteractiveFormula() {
     nextTileId = 0;
     selectPipDropdown.value = '1';
 
+    isClassifyingGenerated = false;
+
     nextTileSelectionDiv.style.display = 'block';
     undoLastMoveBtn.style.display = 'none';
     hideClassificationControls();
@@ -332,14 +340,17 @@ function placeNextTileInteractive() {
             outputDisplay.textContent = "No empty adjacent spots available for placement. Try a different pip or 'Start New Formula'.";
             return;
         }
-        spotToPlace = viableSpots[0];
 
         const dummySelectedTile = { pips: pipsToPlace, remainingPips: pipsToPlace };
-        const isSpotViable = checkIfSpotMeetsGamePlacementRules(
-            currentInteractiveConfig, spotToPlace.q, spotToPlace.r, dummySelectedTile
-        );
-        if (!isSpotViable) {
-            outputDisplay.textContent = `Spot ${spotToPlace.q},${spotToPlace.r} is not viable for a ${pipsToPlace}-pip tile by game rules. Try different pip.`;
+        spotToPlace = null;
+        for (const spot of viableSpots) {
+            if (checkIfSpotMeetsGamePlacementRules(currentInteractiveConfig, spot.q, spot.r, dummySelectedTile)) {
+                spotToPlace = spot;
+                break;
+            }
+        }
+        if (!spotToPlace) {
+            outputDisplay.textContent = `No viable spot found for a ${pipsToPlace}-pip tile by game rules.`;
             return;
         }
     }
@@ -416,6 +427,7 @@ function hideClassificationControls() {
     classifyUniqueBtn.style.display = 'none';
     classifyDerivativeBtn.style.display = 'none';
     classifyEchoBtn.style.display = 'none';
+    selectedCatalogFormulaIndex = null;
 }
 
 function updateUIForCurrentMode() {
@@ -425,7 +437,7 @@ function updateUIForCurrentMode() {
 
 // --- Formula Classification Actions ---
 
-function classifyFormula(status) {
+function classifyInteractiveFormula(status) {
     const currentValidation = validateFormula(currentInteractiveConfig);
     if (!currentValidation.isValid || !currentValidation.isComplete) {
         alert("Current formula is not valid or complete. Cannot classify.");
@@ -458,6 +470,84 @@ function classifyFormula(status) {
 
     alert(`Formula classified as ${status}!`);
     startNewInteractiveFormula();
+}
+
+// Classify a formula generated automatically (from the queue)
+function classifyGeneratedFormula(status) {
+    const item = formulasToClassify[currentFormulaToClassifyIndex];
+
+    let formulaName = item.name || null;
+    if (status === "Unique") {
+        formulaName = prompt("Enter a name for this UNIQUE formula (e.g., 'The Coil'):", formulaName || "");
+        if (!formulaName) {
+            alert("Unique formulas must have a name.");
+            return;
+        }
+    } else if (status === "Derivative") {
+        const maybe = prompt("Enter a name for this DERIVATIVE formula (optional):", formulaName || "");
+        if (maybe) formulaName = maybe;
+    }
+
+    item.status = status;
+    item.name = formulaName;
+
+    catalogedFormulas.push(item);
+    window.globalSeenConfigs.add(item.canonicalForm);
+    formulasToClassify.splice(currentFormulaToClassifyIndex, 1);
+    if (currentFormulaToClassifyIndex >= formulasToClassify.length) currentFormulaToClassifyIndex = 0;
+
+    saveToLocalStorage(LS_KEY_CATALOGED, catalogedFormulas);
+    saveToLocalStorage(LS_KEY_GENERATED_TO_CLASSIFY, formulasToClassify);
+    updateCatalogDisplay();
+    showFormulaToClassify();
+}
+
+// Change classification of an already cataloged formula
+function changeClassification(status) {
+    if (selectedCatalogFormulaIndex === null) return;
+    const record = catalogedFormulas[selectedCatalogFormulaIndex];
+    let formulaName = record.name || null;
+
+    if (status === "Unique") {
+        formulaName = prompt("Enter a name for this UNIQUE formula:", formulaName || "");
+        if (!formulaName) {
+            alert("Unique formulas must have a name.");
+            return;
+        }
+    } else if (status === "Derivative") {
+        const maybe = prompt("Enter a name for this DERIVATIVE formula (optional):", formulaName || "");
+        if (maybe) formulaName = maybe;
+    }
+
+    record.status = status;
+    record.name = formulaName;
+    saveToLocalStorage(LS_KEY_CATALOGED, catalogedFormulas);
+    updateCatalogDisplay();
+    classificationMessage.textContent = `Updated classification to ${status}.`;
+    hideClassificationControls();
+    selectedCatalogFormulaIndex = null;
+}
+
+function handleClassification(status) {
+    if (selectedCatalogFormulaIndex !== null) {
+        changeClassification(status);
+    } else if (isClassifyingGenerated) {
+        classifyGeneratedFormula(status);
+    } else {
+        classifyInteractiveFormula(status);
+    }
+}
+
+function exportUniqueFormulas() {
+    const unique = catalogedFormulas.filter(f => f.status === 'Unique');
+    const json = JSON.stringify(unique, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'uniqueFormulas.json';
+    a.click();
+    URL.revokeObjectURL(url);
 }
 
 // --- Display of Cataloged Formulas ---
@@ -510,7 +600,11 @@ function updateCatalogDisplay() {
             })));
             outputDisplay.textContent = JSON.stringify(record, null, 2);
             classificationMessage.textContent = `Viewing cataloged: ${record.name || record.status}`;
-            hideClassificationControls();
+            selectedCatalogFormulaIndex = catalogedFormulas.indexOf(record);
+            isClassifyingGenerated = false;
+            classifyUniqueBtn.style.display = 'inline-block';
+            classifyDerivativeBtn.style.display = 'inline-block';
+            classifyEchoBtn.style.display = 'inline-block';
         });
         catalogedFormulasList.appendChild(li);
     });
@@ -524,6 +618,7 @@ function showFormulaToClassify() {
         classificationMessage.textContent = "";
         drawFormula([]);
         hideClassificationControls();
+        isClassifyingGenerated = false;
         return;
     }
     const item = formulasToClassify[currentFormulaToClassifyIndex];
@@ -534,6 +629,7 @@ function showFormulaToClassify() {
     classifyUniqueBtn.style.display = 'inline-block';
     classifyDerivativeBtn.style.display = 'inline-block';
     classifyEchoBtn.style.display = 'inline-block';
+    isClassifyingGenerated = true;
 }
 
 function nextFormulaToClassify() {
@@ -559,12 +655,13 @@ resetBuilderBtn.addEventListener('click', startNewInteractiveFormula);
 placeNextTileBtn.addEventListener('click', placeNextTileInteractive);
 undoLastMoveBtn.addEventListener('click', undoLastMoveInteractive);
 
-classifyUniqueBtn.addEventListener('click', () => { classifyFormula("Unique"); nextFormulaToClassify(); });
-classifyDerivativeBtn.addEventListener('click', () => { classifyFormula("Derivative"); nextFormulaToClassify(); });
-classifyEchoBtn.addEventListener('click', () => { classifyFormula("Echo"); nextFormulaToClassify(); });
+classifyUniqueBtn.addEventListener('click', () => handleClassification("Unique"));
+classifyDerivativeBtn.addEventListener('click', () => handleClassification("Derivative"));
+classifyEchoBtn.addEventListener('click', () => handleClassification("Echo"));
 
 
 document.getElementById('nextVis').addEventListener('click', nextFormulaToClassify);
 document.getElementById('prevVis').addEventListener('click', prevFormulaToClassify);
+exportUniqueBtn.addEventListener('click', exportUniqueFormulas);
 
 initializeApp();
