@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Calcination",
+    "valenceCode": "1:1",
+    "shapeType": "Chain",
+    "steps": 2
+  },
+  {
+    "name": "Dissolution",
+    "valenceCode": "2:2:2",
+    "shapeType": "Triangle",
+    "steps": 3
+  }
+]
