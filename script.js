@@ -192,6 +192,15 @@ function recurseGenerate(currentConfig, availablePips, maxDepth) {
         const canonicalForm = getCanonicalForm(configCopy);
 
         if (!window.globalSeenConfigs.has(canonicalForm)) {
+            // Pretty-print instantly for easier eyeballing
+            const chiralityCode = configCopy
+                .map(t => getChiralityForTile(t, configCopy))
+                .join(":");
+            console.info(
+                `[Formula] ${configCopy.length} tiles | ${chiralityCode} | ` +
+                `${configCopy.map(t => t.pips).sort().join(":")} canonical=${canonicalForm}`
+            );
+
             const result = validateFormula(configCopy);
             formulasToClassify.push(new FormulaRecord(configCopy, result, "Pending Classification"));
             saveToLocalStorage(LS_KEY_GENERATED_TO_CLASSIFY, formulasToClassify);

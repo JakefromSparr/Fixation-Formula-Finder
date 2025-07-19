@@ -13,7 +13,10 @@ Automatic Saving/Loading: All formulas you classify are automatically saved to y
 
 Seed Data: Initially loads a set of "Known" formulas from data/knownFormulas.json as a starting point if your local catalog is empty.
 
+
 Global Uniqueness Tracking: Uses a robust canonicalization algorithm to ensure that topologically identical formulas (even if rotated or reflected) are recognized as the same, preventing duplicates in your catalog.
+
+Chirality Map: `validator.js` exposes `getChiralityForTile()` which converts a tile's connection pattern into a canonical bitstring. Known bitstrings are mapped to short labels like `A`, `AB`, or `ACE`. This aids in instantly spotting rotational or reflection duplicates during generation.
 
 Interactive Formula Builder:
 
