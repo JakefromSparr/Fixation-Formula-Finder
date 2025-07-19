@@ -44,17 +44,47 @@ window.calculateViablePlacementSpots = calculateViablePlacementSpots;
 
 
 // Map canonical bit string to Chirality Labels (A, AB, AC, etc.)
-// These mappings are based on your provided Chirality Map Logic
 const chiralityMap = {
-  "100000": "A",
-  "110000": "AB",
-  "101000": "AC",
-  "100100": "AD",
-  "111000": "ABC",
-  "110100": "ABD",
-  "101010": "ACE",
+  "000001": "A",
+  "000011": "AB",
+  "000101": "AC",
+  "001001": "AD",
+  "000111": "ABC",
+  "001011": "ABD",
+  "010101": "ACE",
   // Add more as needed if you discover them, or a 'CUSTOM' fallback
 };
+
+// --- Chirality helpers --------------------------------------------------+
+// Returns "A", "AB", "ACE", … for a single tile.
+function getChiralityForTile(tile, config) {
+  const edgeBits = Array(6).fill("0");
+  (tile.connections || []).forEach(c => {
+    const tgt = config.find(t => t.id === c.targetId);
+    if (!tgt) return;                            // safety
+    const e = getRelativeDirection(tile, tgt);   // 0-5
+    edgeBits[e] = "1";
+  });
+
+  const raw = edgeBits.join("");
+
+  // Generate all rotations of raw and its mirror image
+  const rots = [];
+  for (let i = 0; i < 6; i++) {
+    rots.push(raw.slice(i) + raw.slice(0, i));              // rotation
+  }
+  const rev = raw.split("").reverse().join("");
+  for (let i = 0; i < 6; i++) {
+    rots.push(rev.slice(i) + rev.slice(0, i));              // reflection+rotation
+  }
+
+  // Choose lexicographically smallest to be the canonical bitstring
+  const canonicalBits = rots.sort()[0];
+  return chiralityMap[canonicalBits] || canonicalBits;       // fallback = bitstring
+}
+
+// make it available everywhere
+window.getChiralityForTile = getChiralityForTile;
 
 // Each `transform` takes (q, r) and returns new {q, r}.
 const hexTransforms = [
@@ -315,13 +345,6 @@ function getCanonicalChiralityString(edges) {
 }
 
 // Gets the named chirality type (A, AB, AC etc.) for a tile within a config.
-function getChiralityForTile(tile, config) {
-  const bondedEdgeIndices = getBondedEdgeIndices(tile, config);
-  const canonicalString = getCanonicalChiralityString(bondedEdgeIndices);
-  return chiralityMap[canonicalString] || "CUSTOM"; // Fallback for undefined patterns
-}
-
-
 // --- Shape Classification Functions ---
 
 // Shape definitions based on your plan
